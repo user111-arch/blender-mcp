@@ -10,11 +10,30 @@ The tools exposed by the MCP server.
 
 .. BEGIN TOOL LISTING
 
+``add_light``
+   Add a light, or update the existing light with the same *name*.
+
+``create_material``
+   Create a material, or update it when *name* already exists.
+
+``create_primitive``
+   Create a primitive mesh object in the connected Blender scene.
+
+``delete_objects``
+   Delete the objects named in *names*, unlinking them from every
+   collection they belong to.
+
+``duplicate_object``
+   Duplicate the object identified by *name*.
+
 ``execute_blender_code``
    Execute Python code in the connected Blender instance.
 
 ``execute_blender_code_for_cli``
    Execute Python code in a background Blender process.
+
+``export_scene``
+   Export scene geometry to a file for use outside Blender.
 
 ``get_blendfile_summary_datablocks``
    Return a summary of the blend file: data-block counts, active workspace,
@@ -74,6 +93,9 @@ The tools exposed by the MCP server.
    Return a JSON description of the Blender window layout, areas, active
    object, and selection.
 
+``join_objects``
+   Merge two or more mesh objects into a single object.
+
 ``jump_to_tab_by_name``
    Switch the active workspace tab to *name*.
 
@@ -90,6 +112,9 @@ The tools exposed by the MCP server.
    Render a small, low-quality thumbnail to *output_path* (temporarily
    overrides settings).
 
+``render_to_image``
+   Render the current scene and return the result as a PNG image.
+
 ``render_viewport_to_path``
    Render the current scene to *output_path* using current render settings.
 
@@ -98,5 +123,11 @@ The tools exposed by the MCP server.
 
 ``search_manual_docs``
    Full-text search over the bundled Blender user manual.
+
+``setup_camera``
+   Position a camera, creating it when it does not exist yet.
+
+``transform_object``
+   Set or offset the transform of the object identified by *name*.
 
 .. END TOOL LISTING

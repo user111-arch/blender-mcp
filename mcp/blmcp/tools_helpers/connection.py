@@ -9,6 +9,7 @@ Used by MCP "tools" that send-code to the Blender add-on.
 """
 
 __all__ = (
+    "get_auth_token",
     "get_connection_params",
     "send_code",
 )
@@ -22,11 +23,24 @@ _DEFAULT_PORT = 9876
 _TIMEOUT = 300.0
 _RECV_BUFFER_SIZE = 65536
 
+# Must match the add-on's "Auth Token" preference. Unset means the add-on is not
+# requiring authentication, which is the default.
+_ENV_AUTH_TOKEN = "BLENDER_MCP_TOKEN"
+
 
 def get_connection_params() -> tuple[str, int]:
     host = os.environ.get("BLENDER_MCP_HOST", _DEFAULT_HOST)
     port = int(os.environ.get("BLENDER_MCP_PORT", str(_DEFAULT_PORT)))
     return host, port
+
+
+def get_auth_token() -> str:
+    """
+    Return the token to send with each request.
+
+    An empty string means the add-on was never configured to require one.
+    """
+    return os.environ.get(_ENV_AUTH_TOKEN, "")
 
 
 def send_code(code: str, strict_json: bool) -> dict[str, object]:
@@ -42,11 +56,17 @@ def send_code(code: str, strict_json: bool) -> dict[str, object]:
     returns an invalid response.
     """
     host, port = get_connection_params()
-    request = json.dumps({
+    payload: dict[str, object] = {
         "type": "execute",
         "code": code,
         "strict_json": strict_json,
-    }) + "\0"
+    }
+    # Only included when configured. The add-on ignores an absent token when it
+    # is not requiring authentication, so this stays backwards compatible.
+    token = get_auth_token()
+    if token:
+        payload["token"] = token
+    request = json.dumps(payload) + "\0"
 
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:

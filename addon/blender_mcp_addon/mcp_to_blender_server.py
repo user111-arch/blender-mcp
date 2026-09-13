@@ -15,6 +15,7 @@ __all__ = (
     "DEFAULT_HOST",
     "DEFAULT_PORT",
     "TIMER_INTERVAL_ACTIVE",
+    "auth_token",
     "is_running",
     "poll",
     "poll_blocking",
@@ -26,6 +27,7 @@ __all__ = (
     "use_log",
 )
 
+import hmac
 import json
 import math
 import select
@@ -124,6 +126,18 @@ def timer_idle_interval() -> float:
 
 # When True, print every request and response status to STDERR.
 use_log: bool = False
+
+# Shared secret every client must present, empty disables authentication.
+#
+# The listening socket is bound to the loopback interface, so the threat this
+# closes is not the network but another *local* process - including a sandboxed
+# application - talking to this port directly. Whoever can reach it can run
+# arbitrary Python inside Blender, since `_execute_code` `exec()`'s whatever
+# string the client sends, with Blender's full privileges.
+#
+# Kept in sync from the add-on preferences, see the `auth_token` preference in
+# `__init__.py`. Empty is the default so existing setups keep working.
+auth_token: str = ""
 
 _MAX_REQUEST_BYTES = 10 * 1024 * 1024  # 10 MiB.
 # Maximum number of queued incoming connections.
@@ -304,6 +318,25 @@ def _execute_code(
     return _ExecResult(response)
 
 
+def _token_is_valid(request: dict[str, object]) -> bool:
+    """
+    Check the request's token against the configured one.
+
+    Authentication is opt-in: an empty ``auth_token`` accepts any client, which
+    keeps existing setups working unchanged. When a token *is* configured the
+    comparison is constant time so the response cannot be timed to recover it.
+
+    Values are compared as UTF-8 bytes because ``hmac.compare_digest`` rejects
+    ``str`` containing non-ASCII characters, and a token is free-form text.
+    """
+    if not auth_token:
+        return True
+    provided = request.get("token")
+    if not isinstance(provided, str):
+        return False
+    return hmac.compare_digest(provided.encode("utf-8"), auth_token.encode("utf-8"))
+
+
 def _execute_code_from_request(
         data: bytes,
 ) -> tuple[_ExecResult, bool]:
@@ -322,6 +355,19 @@ def _execute_code_from_request(
     # Invalid JSON is not expected since the MCP server serializes requests with `json.dumps`.
     # Any error should be rare, the "default" exception path is fine.
     request = json.loads(data)
+
+    # Checked before anything else, so an unauthenticated caller learns nothing
+    # about the request format and no code path can execute ahead of the check.
+    if not _token_is_valid(request):
+        # Deliberately vague about which part failed; the caller may be hostile.
+        return _ExecResult({
+            "status": "error",
+            "message": (
+                "Authentication failed: this add-on requires a token. "
+                "Set BLENDER_MCP_TOKEN on the MCP server to match the add-on's "
+                "'Auth Token' preference, or clear that preference to disable it."
+            ),
+        }), False
 
     if request.get("type") != "execute":
         return _ExecResult({

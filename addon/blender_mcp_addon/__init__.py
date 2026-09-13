@@ -132,6 +132,20 @@ class _BlenderMCPPreferences(bpy.types.AddonPreferences):  # type: ignore[misc]
         update=_update_use_log,
     )
 
+    def _update_auth_token(self, _context: bpy.types.Context) -> None:
+        mcp_to_blender_server.auth_token = self.auth_token
+
+    auth_token: StringProperty(  # type: ignore[valid-type]
+        name="Auth Token",
+        description=(
+            "Secret the MCP server must send with every request. "
+            "Leave empty to accept any local client (the historical behavior). "
+            "When set, set the same value in BLENDER_MCP_TOKEN for the MCP server"
+        ),
+        default="",
+        update=_update_auth_token,
+    )
+
     def _update_timer_interval_active(self, _context: bpy.types.Context) -> None:
         # Cached on the server module because the timer callback may fire
         # many times a second, avoid slower preferences lookups.
@@ -194,6 +208,7 @@ class _BlenderMCPPreferences(bpy.types.AddonPreferences):  # type: ignore[misc]
         layout.prop(self, "timer_interval_idle")
         layout.prop(self, "timer_interval_idle_delay")
         layout.prop(self, "use_log")
+        layout.prop(self, "auth_token")
 
         if mcp_to_blender_server.is_running():
             layout.operator("blmcp.server_stop", icon="CANCEL")
@@ -231,6 +246,7 @@ class _BLMCP_OT_server_start(bpy.types.Operator):  # type: ignore[misc]
             idle_delay=prefs.timer_interval_idle_delay,
         )
         mcp_to_blender_server.use_log = prefs.use_log
+        mcp_to_blender_server.auth_token = prefs.auth_token
         try:
             mcp_to_blender_server.start(prefs.host, prefs.port)
         except Exception as ex:  # pylint: disable=broad-exception-caught
@@ -279,6 +295,7 @@ def _autostart_timer() -> None:
         idle_delay=prefs.timer_interval_idle_delay,
     )
     mcp_to_blender_server.use_log = prefs.use_log
+    mcp_to_blender_server.auth_token = prefs.auth_token
 
     # This isn't expected:
     # - Maybe the operator is explicitly called as part of an automated action.

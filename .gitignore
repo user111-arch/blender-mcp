@@ -3,3 +3,4 @@ __pycache__/
 .venv/
 build/
 *.mcpb
+mcp-1.0.0.zip
